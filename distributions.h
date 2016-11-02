@@ -711,6 +711,36 @@ inline bool init(dense_categorical<V>& distribution, unsigned int atom_count) {
 	return true;
 }
 
+template<typename V>
+inline bool init(dense_categorical<V>& distribution, const dense_categorical<V>& src) {
+	distribution.atom_count = src.atom_count;
+	distribution.phi = (V*) malloc(src.atom_count * sizeof(V));
+	if (distribution.phi == NULL) {
+		fprintf(stderr, "init ERROR: Insufficient memory for phi in the dense_categorical.\n");
+		return false;
+	}
+	memcpy(distribution.phi, src.phi, sizeof(V) * src.atom_count);
+	return true;
+}
+
+template<typename V, typename Stream>
+bool read(dense_categorical<V>& distribution, Stream& stream) {
+	if (!read(distribution.atom_count, stream))
+		return false;
+	distribution.phi = (V*) malloc(distribution.atom_count * sizeof(V));
+	if (distribution.phi == NULL) {
+		fprintf(stderr, "read ERROR: Insufficient memory for phi in the dense_categorical.\n");
+		return false;
+	}
+	return read(distribution.phi, stream, distribution.atom_count);
+}
+
+template<typename V, typename Stream>
+bool write(const dense_categorical<V>& distribution, Stream& stream) {
+	return write(distribution.atom_count, stream)
+		&& write(distribution.phi, stream, distribution.atom_count);
+}
+
 
 template<typename K, typename V>
 struct sparse_categorical
@@ -874,9 +904,9 @@ struct sequence_distribution
 	V end_probability;
 	V log_end_probability;
 	V log_not_end_probability;
-	const ElementDistribution& element_distribution;
+	ElementDistribution element_distribution;
 
-	sequence_distribution(const ElementDistribution& element_distribution, double end_probability) :
+	sequence_distribution(ElementDistribution& element_distribution, double end_probability) :
 		end_probability(end_probability),
 		log_end_probability(log(end_probability)),
 		log_not_end_probability(log(1.0 - end_probability)),
@@ -884,7 +914,7 @@ struct sequence_distribution
 	{ }
 
 	template<typename SequenceType>
-	inline double probability(const SequenceType& sequence) {
+	inline double probability(const SequenceType& sequence) const {
 		if (sequence.length == 0) return 0.0;
 		double product = element_distribution.probability(sequence[0]);
 		for (unsigned int i = 1; i < sequence.length; i++)
@@ -893,13 +923,44 @@ struct sequence_distribution
 	}
 
 	template<typename SequenceType>
-	inline double log_probability(const SequenceType& sequence) {
+	inline double log_probability(const SequenceType& sequence) const {
 		if (sequence.length == 0) return -std::numeric_limits<double>::infinity();
 		double sum = element_distribution.log_probability(sequence[0]);
 		for (unsigned int i = 1; i < sequence.length; i++)
 			sum += element_distribution.log_probability(sequence[i]) + log_not_end_probability;
 		return sum + log_end_probability;
 	}
+
+	static inline void free(sequence_distribution<ElementDistribution>& distribution) {
+		core::free(distribution.element_distribution);
+	}
 };
+
+template<typename ElementDistribution>
+inline bool init(sequence_distribution<ElementDistribution>& distribution,
+		const sequence_distribution<ElementDistribution>& src)
+{
+	distribution.end_probability = src.end_probability;
+	distribution.log_end_probability = src.log_end_probability;
+	distribution.log_not_end_probability = src.log_not_end_probability;
+	return init(distribution.element_distribution, src.element_distribution);
+}
+
+template<typename ElementDistribution, typename Stream>
+bool read(sequence_distribution<ElementDistribution>& distribution, Stream& stream)
+{
+	if (!read(distribution.end_probability, stream))
+		return false;
+	distribution.log_end_probability = log(distribution.end_probability);
+	distribution.log_not_end_probability = log(1.0 - distribution.end_probability);
+	return read(distribution.element_distribution, stream);
+}
+
+template<typename ElementDistribution, typename Stream>
+bool write(const sequence_distribution<ElementDistribution>& distribution, Stream& stream)
+{
+	return write(distribution.end_probability, stream)
+		&& write(distribution.element_distribution, stream);
+}
 
 #endif /* DISTRIBUTIONS_H_ */
