@@ -797,12 +797,37 @@ struct sparse_categorical
 		else return log_prob;
 	}
 
+	static inline void free(sparse_categorical<K, V>& distribution) {
+		distribution.free();
+		core::free(distribution.probabilities);
+	}
+
 private:
 	inline void free() {
 		for (auto entry : probabilities)
 			core::free(entry.key);
 	}
 };
+
+template<typename K, typename V>
+inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorical<K, V>& src) {
+	distribution.atom_count = src.atom_count;
+	distribution.prob = src.prob;
+	distribution.log_prob = src.log_prob;
+	distribution.dense_prob = src.dense_prob;
+	if (!hash_map_init(distribution.probabilities, src.probabilities.table.capacity)) {
+		fprintf(stderr, "init ERROR: Unable to initialize hash_map in sparse_categorical.\n");
+		return false;
+	}
+	for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
+		if (!is_empty(src.probabilities.table.keys[i])) {
+			distribution.probabilities.table.keys[i] = src.probabilities.table.keys[i];
+			distribution.probabilities.values[i] = src.probabilities.values[i];
+			distribution.probabilities.table.size++;
+		}
+	}
+	return true;
+}
 
 
 /* the degenerate distribution */
