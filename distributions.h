@@ -679,6 +679,17 @@ struct dense_categorical
 		dst.atom_count = src.atom_count;
 	}
 
+	static inline bool copy(const dense_categorical<V>& src, dense_categorical<V>& dst) {
+		dst.phi = (V*) malloc(sizeof(V) * src.atom_count);
+		if (dst.phi == NULL) {
+			fprintf(stderr, "dense_categorical.copy ERROR: Out of memory.\n");
+			return false;
+		}
+		memcpy(dst.phi, src.phi, src.atom_count * sizeof(V));
+		dst.atom_count = src.atom_count;
+		return true;
+	}
+
 	/* NOTE: this function assumes that the type V has constant size */
 	template<typename Metric>
 	static inline long unsigned int size_of(const dense_categorical<V>& distribution, const Metric& metric) {
@@ -821,7 +832,11 @@ inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorica
 	}
 	for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
 		if (!is_empty(src.probabilities.table.keys[i])) {
-			distribution.probabilities.table.keys[i] = src.probabilities.table.keys[i];
+			if (!init(distribution.probabilities.table.keys[i], src.probabilities.table.keys[i])) {
+				set_empty(distribution.probabilities.table.keys[i]);
+				core::free(distribution);
+				return false;
+			}
 			distribution.probabilities.values[i] = src.probabilities.values[i];
 			distribution.probabilities.table.size++;
 		}

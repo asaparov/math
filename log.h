@@ -64,6 +64,11 @@ inline auto max(const T* src, unsigned int length) -> decltype(max(src, 1, lengt
 	return max(src, length, 1);
 }
 
+template<typename T>
+inline auto max(const array<T>& src) -> decltype(max(src.data, src.length)) {
+	return max(src.data, src.length);
+}
+
 template<typename T, typename V>
 inline V sumexp(const T* src, unsigned int length, unsigned int skip, const V& shift) {
 	V sum = 0.0;
