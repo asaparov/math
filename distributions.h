@@ -752,6 +752,12 @@ bool write(const dense_categorical<V>& distribution, Stream& stream) {
 		&& write(distribution.phi, stream, distribution.atom_count);
 }
 
+template<typename V>
+inline bool sample(const dense_categorical<V>& distribution, unsigned int& output) {
+	output = sample_categorical(distribution.phi, 1.0, distribution.atom_count);
+	return true;
+}
+
 
 template<typename K, typename V>
 struct sparse_categorical
@@ -908,6 +914,13 @@ struct constant
 		const PriorDistribution& prior, const array_histogram<K>& items)
 	{
 		return prior.log_probability(items);
+	}
+
+	template<typename PriorDistribution>
+	static inline bool sample(const PriorDistribution& prior,
+			const array_histogram<K>& observations, K& sample)
+	{
+		return copy(observations.counts.keys[0], sample);
 	}
 };
 
