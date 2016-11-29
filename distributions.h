@@ -754,7 +754,7 @@ bool write(const dense_categorical<V>& distribution, Stream& stream) {
 
 template<typename V>
 inline bool sample(const dense_categorical<V>& distribution, unsigned int& output) {
-	output = sample_categorical(distribution.phi, 1.0, distribution.atom_count);
+	output = sample_categorical(distribution.phi, 1.0, distribution.atom_count) + 1;
 	return true;
 }
 
@@ -848,6 +848,29 @@ inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorica
 		}
 	}
 	return true;
+}
+
+template<typename K, typename V>
+inline bool sample(const sparse_categorical<K, V>& distribution, K& output)
+{
+	V random = sample_uniform<V>();
+	if (random < distribution.dense_prob
+	 || distribution.probabilities.table.size >= distribution.atom_count)
+	{
+		V aggregator = 0.0;
+		const K* last = NULL;
+		for (const auto& entry : distribution.probabilities) {
+			last = &entry.key;
+			aggregator += entry.value.key;
+			if (random < aggregator)
+				return copy(entry.key, output);
+		}
+		return copy(*last, output);
+	} else {
+		fprintf(stderr, "sample ERROR: We sampled an object "
+				"not belonging to the hash_map of known objects.");
+		return false;
+	}
 }
 
 
