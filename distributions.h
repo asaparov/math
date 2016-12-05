@@ -1007,6 +1007,16 @@ struct sequence_distribution
 		return sum + log_end_probability;
 	}
 
+	static inline bool copy(
+			const sequence_distribution<ElementDistribution>& src,
+			sequence_distribution<ElementDistribution>& dst)
+	{
+		dst.end_probability = src.end_probability;
+		dst.log_end_probability = src.log_end_probability;
+		dst.log_not_end_probability = src.log_not_end_probability;
+		return core::copy(src.element_distribution, dst.element_distribution);
+	}
+
 	static inline void free(sequence_distribution<ElementDistribution>& distribution) {
 		core::free(distribution.element_distribution);
 	}
@@ -1037,6 +1047,22 @@ bool write(const sequence_distribution<ElementDistribution>& distribution, Strea
 {
 	return write(distribution.end_probability, stream)
 		&& write(distribution.element_distribution, stream);
+}
+
+template<typename ElementDistribution, typename SequenceType>
+bool sample(const sequence_distribution<ElementDistribution>& distribution, SequenceType& output)
+{
+	/* first sample the length of the sequence */
+	unsigned int length = sample_geometric(distribution.end_probability) + 1;
+	if (!init(output, length)) return false;
+	for (unsigned int i = 0; i < length; i++) {
+		if (!sample(distribution.element_distribution, output[i])) {
+			for (unsigned int j = 0; j < i; j++)
+				free(output[j]);
+			return false;
+		}
+	}
+	return true;
 }
 
 #endif /* DISTRIBUTIONS_H_ */
