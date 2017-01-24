@@ -774,6 +774,14 @@ struct sparse_categorical
 	sparse_categorical(unsigned int atom_count) :
 		probabilities(16), atom_count(atom_count),
 		prob(1.0 / atom_count), dense_prob(0.0), log_prob(-log(atom_count)) { }
+
+	sparse_categorical(const sparse_categorical<K, V>& src) : probabilities(src.probabilities.table.capacity),
+			atom_count(src.atom_count), prob(src.prob), dense_prob(src.dense_prob), log_prob(src.log_prob)
+	{
+		if (!initialize(src))
+			exit(EXIT_FAILURE);
+	}
+
 	~sparse_categorical() { free(); }
 
 	bool set(const K& key, const V& probability) {
@@ -820,10 +828,27 @@ struct sparse_categorical
 	}
 
 private:
+	inline bool initialize(const sparse_categorical<K, V>& src) {
+		for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
+			if (!is_empty(src.probabilities.table.keys[i])) {
+				if (!init(probabilities.table.keys[i], src.probabilities.table.keys[i])) {
+					set_empty(probabilities.table.keys[i]);
+					return false;
+				}
+				probabilities.values[i] = src.probabilities.values[i];
+				probabilities.table.size++;
+			}
+		}
+		return true;
+	}
+
 	inline void free() {
 		for (auto entry : probabilities)
 			core::free(entry.key);
 	}
+
+	template<typename A, typename B>
+	friend bool init(sparse_categorical<A, B>&, const sparse_categorical<A, B>&);
 };
 
 template<typename K, typename V>
@@ -835,17 +860,9 @@ inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorica
 	if (!hash_map_init(distribution.probabilities, src.probabilities.table.capacity)) {
 		fprintf(stderr, "init ERROR: Unable to initialize hash_map in sparse_categorical.\n");
 		return false;
-	}
-	for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
-		if (!is_empty(src.probabilities.table.keys[i])) {
-			if (!init(distribution.probabilities.table.keys[i], src.probabilities.table.keys[i])) {
-				set_empty(distribution.probabilities.table.keys[i]);
-				core::free(distribution);
-				return false;
-			}
-			distribution.probabilities.values[i] = src.probabilities.values[i];
-			distribution.probabilities.table.size++;
-		}
+	} else if (!distribution.initialize(src)) {
+		core::free(distribution.probabilities);
+		return false;
 	}
 	return true;
 }
