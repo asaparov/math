@@ -20,6 +20,10 @@
 /* forward declarations */
 template<typename V> struct dirichlet;
 
+inline double log_rising_factorial(double base, unsigned int exponent) {
+	return lgamma(base + exponent) - lgamma(base);
+}
+
 template<typename V>
 struct array_categorical {
 	V* log_probabilities;
