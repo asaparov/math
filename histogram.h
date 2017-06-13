@@ -269,6 +269,8 @@ inline bool read(array_histogram<T>& h, FILE* in, Reader&&... reader) {
 	h.sum = 0;
 	for (unsigned int i = 0; i < h.counts.size; i++)
 		h.sum += h.counts.values[i];
+	if (h.counts.size > 1)
+		sort(h.counts.keys, h.counts.values, (unsigned int) h.counts.size, dummy_sorter());
 	return true;
 }
 
