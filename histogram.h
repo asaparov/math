@@ -29,7 +29,7 @@ struct array_histogram {
 		if (!add_unsorted(item, count, start_index))
 			return false;
 		if (counts.size > 1)
-			sort(counts.keys, counts.values, (unsigned int) counts.size, dummy_sorter()); /* TODO: test performance of different sorts */
+			sort(counts.keys, counts.values, (unsigned int) counts.size, default_sorter()); /* TODO: test performance of different sorts */
 		return true;
 	}
 
@@ -84,7 +84,7 @@ struct array_histogram {
 
 		counts.size = new_length;
 		if (counts.size > 1)
-			sort(counts.keys, counts.values, (unsigned int) counts.size, dummy_sorter());
+			sort(counts.keys, counts.values, (unsigned int) counts.size, default_sorter());
 		sum += items.sum;
 		return true;
 	}
@@ -188,7 +188,7 @@ struct array_histogram {
 		return true;
 	}
 
-	template<typename Metric = dummy_metric>
+	template<typename Metric = default_metric>
 	static inline long unsigned int size_of(const array_histogram<T>& h, const Metric& metric) {
 		return core::size_of(h.counts, metric) + core::size_of(h.sum);
 	}
@@ -270,7 +270,7 @@ inline bool read(array_histogram<T>& h, FILE* in, Reader&&... reader) {
 	for (unsigned int i = 0; i < h.counts.size; i++)
 		h.sum += h.counts.values[i];
 	if (h.counts.size > 1)
-		sort(h.counts.keys, h.counts.values, (unsigned int) h.counts.size, dummy_sorter());
+		sort(h.counts.keys, h.counts.values, (unsigned int) h.counts.size, default_sorter());
 	return true;
 }
 
@@ -298,7 +298,7 @@ inline void print(const array_histogram<T>& h, FILE* out, Printer&&... printer) 
 
 template<typename T>
 inline void print(const array_histogram<T>& h, FILE* out) {
-	dummy_scribe scribe;
+	default_scribe scribe;
 	print(h, out, scribe);
 }
 
@@ -451,7 +451,7 @@ inline void print(const hash_histogram<T>& h, FILE* out, Printer& printer) {
 
 template<typename T>
 inline void print(const hash_histogram<T>& h, FILE* out) {
-	dummy_scribe scribe;
+	default_scribe scribe;
 	print(out, h, scribe);
 }
 

@@ -10,6 +10,8 @@
 
 #include <core/array.h>
 
+using namespace core;
+
 struct feature_set {
 	unsigned int* features;
 	unsigned int feature_count;

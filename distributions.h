@@ -577,7 +577,6 @@ struct dense_categorical
 		bool contains;
 		unsigned int count = conditioned.counts.get(holdout, contains);
 
-		double to_return;
 		if (contains) {
 			return log(prior.get_for_atom(holdout) + count - 1);
 		} else {
