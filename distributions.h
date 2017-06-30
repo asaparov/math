@@ -117,6 +117,47 @@ bool init(array_categorical<V>& categorical, unsigned int length) {
  * regular [Dirichlet distribution](https://en.wikipedia.org/wiki/Dirichlet_distribution),
  * where all the elements of the concentration parameter vector *pi* have the
  * same value.
+ *
+ * The following example constructs a Dirichlet distribution with dimension 3,
+ * and concentration parameter [0.1, 0.1, 0.1]. It proceeds to generate two
+ * samples from this distribution. The expected output is
+ * `[0.004223, 0.995777, 0.000000] [0.964576, 0.035400, 0.000024]`.
+ *
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * template<typename V>
+ * struct custom_vector {
+ * 	V* elements;
+ *
+ * 	custom_vector(unsigned int length) {
+ * 		elements = (V*) malloc(sizeof(V) * length);
+ * 	}
+ *
+ * 	~custom_vector() { free(elements); }
+ *
+ * 	inline V get(unsigned int index) const {
+ * 		return elements[index];
+ * 	}
+ *
+ * 	void set(unsigned int index, const V& value) {
+ * 		elements[index] = value;
+ * 	}
+ * };
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	symmetric_dirichlet<double> dir(3, 0.1);
+ *
+ * 	custom_vector<double> output(3);
+ * 	for (unsigned int i = 0; i < 2; i++) {
+ * 		sample(dir, output);
+ * 		print(output.elements, 3, stdout); print(' ', stdout);
+ * 	}
+ * }
+ * ```
+ *
  * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).
  */
 template<typename V>
@@ -230,7 +271,7 @@ struct symmetric_dirichlet {
 
 	/**
 	 * Samples from this symmetric Dirichlet distribution and puts the result in `dst`.
-	 * \tparam Destination a generic type that implements the public member
+	 * \tparam Destination a vector type that implements the public member
 	 * 		function `set(unsigned int, const V&)`.
 	 */
 	template<typename Destination>
@@ -336,8 +377,61 @@ inline bool write(const symmetric_dirichlet<V>& distribution, FILE* out) {
 }
 
 /**
+ * Samples from the given symmetric Dirichlet `distribution` and puts the result in `dst`.
+ * \tparam Destination a vector type that implements the public member function
+ * 		`set(unsigned int, const V&)`.
+ */
+template<typename V, typename Destination>
+inline bool sample(const symmetric_dirichlet<V>& distribution, Destination& dst) {
+	distribution.sample(dst);
+	return true;
+}
+
+/**
  * A structure representing a finite [Dirichlet distribution](https://en.wikipedia.org/wiki/Dirichlet_distribution),
  * which is a generalization of the symmetric Dirichlet distribution (see struct symmetric_dirichlet).
+ *
+ * The following example constructs a Dirichlet distribution with dimension 3,
+ * and concentration parameter [10, 1, 2]. It proceeds to generate two samples
+ * from this distribution. The expected output is
+ * `[0.491806, 0.023958, 0.484236] [0.804916, 0.019964, 0.175120]`.
+ *
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * template<typename V>
+ * struct custom_vector {
+ * 	V* elements;
+ *
+ * 	custom_vector(unsigned int length) {
+ * 		elements = (V*) malloc(sizeof(V) * length);
+ * 	}
+ *
+ * 	~custom_vector() { free(elements); }
+ *
+ * 	inline V get(unsigned int index) const {
+ * 		return elements[index];
+ * 	}
+ *
+ * 	void set(unsigned int index, const V& value) {
+ * 		elements[index] = value;
+ * 	}
+ * };
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	double alpha[] = {10.0, 1.0, 2.0};
+ * 	dirichlet<double> dir(3, alpha);
+ *
+ * 	custom_vector<double> output(3);
+ * 	for (unsigned int i = 0; i < 2; i++) {
+ * 		sample(dir, output);
+ * 		print(output.elements, 3, stdout); print(' ', stdout);
+ * 	}
+ * }
+ * ```
+ *
  * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).
  */
 template<typename V>
@@ -465,6 +559,8 @@ struct dirichlet {
 
 	/**
 	 * Samples from this Dirichlet distribution and puts the result in `dst`.
+	 * \tparam Destination a vector type that implements the public member
+	 * 		function `set(unsigned int, const V&)`.
 	 */
 	template<typename Destination>
 	inline void sample(Destination& dst) const {
@@ -591,6 +687,17 @@ inline bool write(const dirichlet<V>& distribution, FILE* out) {
 	return write(distribution.pi, out, distribution.atom_count);
 }
 
+/**
+ * Samples from the given Dirichlet `distribution` and puts the result in `dst`.
+ * \tparam Destination a vector type that implements the public member function
+ * 		`set(unsigned int, const V&)`.
+ */
+template<typename V, typename Destination>
+inline bool sample(const dirichlet<V>& distribution, Destination& dst) {
+	distribution.sample(dst);
+	return true;
+}
+
 
 /**
  * <!-- Some useful type traits for Dirichlet distribution structures. -->
@@ -618,6 +725,42 @@ struct is_dirichlet<dirichlet<V>> : std::true_type { };
  * and non-uniform components.
  * **NOTE:** This distribution assumes the observations have type
  * `unsigned int` and take values in `{1, ..., dense_categorical::atom_count}`.
+ *
+ * In the following example, we define a categorical distribution over the
+ * ASCII characters (encoded as positive integers from 1 through 256).
+ * ASCII characters (encoded as positive integers from 1 through 256). Positive
+ * probability is only assigned to the characters <code>{'a', 'b', 'c', 'd', 'e'}</code>,
+ * and we draw 10 samples from the distribution. The expected output of the
+ * example is `a, c, b, b, d, e, b, e, b, b, `.
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * template<typename V>
+ * inline void set_probability(
+ * 		dense_categorical<V>& categorical,
+ * 		unsigned int atom, const V& probability)
+ * {
+ * 	categorical.phi[atom - 1] = probability;
+ * }
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	dense_categorical<double> categorical(256);
+ * 	set_probability(categorical, 'a', 0.1);
+ * 	set_probability(categorical, 'b', 0.4);
+ * 	set_probability(categorical, 'c', 0.1);
+ * 	set_probability(categorical, 'd', 0.2);
+ * 	set_probability(categorical, 'e', 0.2);
+ *
+ * 	for (unsigned int i = 0; i < 10; i++) {
+ * 		unsigned int output;
+ * 		sample(categorical, output);
+ * 		printf("%c, ", output);
+ * 	}
+ * }
+ * ```
+ *
  * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).
  */
 template<typename V>
@@ -1159,6 +1302,32 @@ inline bool sample(const dense_categorical<V>& distribution, unsigned int& outpu
  * sparsely as a sum of uniform and non-uniform components. Unlike
  * dense_categorical, the observations do not necessarily have type `unsigned
  * int`, and can have generic type `K`.
+ *
+ * The following is an example where a sparse_categorical distribution is
+ * constructed over the domain <code>{'a', 'b', 'c', 'd', 'e'}</code>. The probability of
+ * each event is specified and 10 samples are drawn. The expected output is
+ * `d, b, d, d, b, c, a, b, e, e,`.
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	sparse_categorical<char, double> categorical(5);
+ * 	categorical.set('a', 0.1);
+ * 	categorical.set('b', 0.4);
+ * 	categorical.set('c', 0.1);
+ * 	categorical.set('d', 0.2);
+ * 	categorical.set('e', 0.2);
+ *
+ * 	for (unsigned int i = 0; i < 10; i++) {
+ * 		char c;
+ * 		sample(categorical, c);
+ * 		printf("%c, ", c);
+ * 	}
+ * }
+ * ```
+ *
  * \tparam K the generic type of the observations. `K` must satisfy either:
  * 		1. [is_fundamental](http://en.cppreference.com/w/cpp/types/is_fundamental),
  * 		2. [is_enum](http://en.cppreference.com/w/cpp/types/is_enum),
@@ -1335,7 +1504,10 @@ inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorica
 }
 
 /**
- * Draws a sample from the given sparse_categorical `distribution` and stores it in `output`.
+ * Draws a sample from the given sparse_categorical `distribution` and stores
+ * it in `output`. It is possible that the observation will be sampled from the
+ * uniform component of the sparse categorical distribution, in which case this
+ * function will print an error and return `false`.
  * \tparam K satisfies core::is_copyable.
  */
 template<typename K, typename V>
@@ -1574,6 +1746,42 @@ struct uniform_distribution {
  * until a special "stop event" is drawn with probability
  * sequence_distribution::end_probability. We assume the first event is not the
  * stop event.
+ *
+ * The following example constructs a sequence_distribution where
+ * the ElementDistribution is a sparse_categorical distribution over the
+ * characters <code>{'a', 'b', 'c', 'd', 'e'}</code>. Five samples are drawn from the
+ * sequence distribution. The expected output is
+ * <code>'ddbc', 'eecdecdd', 'bbbb', 'dd', 'babababc', </code>.
+ *
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	sparse_categorical<char, double> categorical(5);
+ * 	categorical.set('a', 0.1);
+ * 	categorical.set('b', 0.4);
+ * 	categorical.set('c', 0.1);
+ * 	categorical.set('d', 0.2);
+ * 	categorical.set('e', 0.2);
+ *
+ * 	sequence_distribution<sparse_categorical<char, double>> seq(categorical, 0.2);
+ *
+ * 	for (unsigned int i = 0; i < 5; i++) {
+ * 		string s;
+ * 		sample(seq, s);
+ * 		print("'", stdout);
+ * 		print(s, stdout);
+ * 		print("', ", stdout);
+ * 	}
+ * }
+ * ```
+ *
+ * \tparam ElementDistribution a distribution type that defines a public
+ * 		typedef `value_type` that indicates the type of the probabilities. Some
+ * 		operations in this class also require the public member functions
+ * 		`value_type probability(const T&)`, `value_type log_probability(const T&)`.
  */
 template<typename ElementDistribution>
 struct sequence_distribution
