@@ -12,6 +12,7 @@
 
 #include "histogram.h"
 #include "sparse_vector.h"
+#include "log.h"
 
 /* TODO: add documentation */
 #define CATEGORICAL_MAX_THRESHOLD 16.0
@@ -25,7 +26,8 @@ template<typename V> struct dirichlet;
 /**
  * Returns the natural logarithm of the
  * [rising factorial](https://en.wikipedia.org/wiki/Falling_and_rising_factorials):
- * *log{product from i=0 to n-1 of a^i}* where `base` is *a* and `exponent` is *n*.
+ * \f[ \log a^{(n)} = \log \left\{ \prod_{i=0}^{n-1} a^i \right\}, \f]
+ * where `base` is \f$ a \f$ and `exponent` is \f$ n \f$.
  */
 inline double log_rising_factorial(double base, unsigned int exponent) {
 	return lgamma(base + exponent) - lgamma(base);

@@ -1,4 +1,4 @@
-Documentation and code examples are available at <http://asaparov.org/docs/math>.
+Documentation and code examples are available at <http://asaparov.org/docs/math>. The repository is located at <https://github.com/asaparov/math>.
 
 This repository contains a handful of data structures and algorithms for common mathematical operations in scientific computing.
 
