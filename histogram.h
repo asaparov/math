@@ -297,6 +297,14 @@ struct array_histogram {
 	}
 
 	/**
+	 * Swaps the contents of the given array_histograms `first` and `second`.
+	 */
+	static inline void swap(array_histogram<T>& first, array_histogram<T>& second) {
+		core::swap(first.counts, second.counts);
+		core::swap(first.sum, second.sum);
+	}
+
+	/**
 	 * Copies the contents of the array_histogram `src` into `dst`.
 	 */
 	static inline bool copy(const array_histogram<T>& src, array_histogram<T>& dst) {

@@ -244,12 +244,13 @@ struct symmetric_dirichlet {
 
 	/**
 	 * Returns the element at the given `atom` in the concentration parameter
-	 * vector. The atom is a non-zero unsigned integer drawn from a categorical
-	 * distribution with a Dirichlet prior. Thus, the atom `n` corresponds to
-	 * the index `n - 1`. In the case of the symmetric Dirichlet distribution,
-	 * this function always returns symmetric_dirichlet::pi.
+	 * vector. The atom is a non-empty element drawn from a categorical
+	 * distribution with a Dirichlet prior. In the case of the symmetric
+	 * Dirichlet distribution, this function always returns
+	 * symmetric_dirichlet::pi.
 	 */
-	inline V get_for_atom(unsigned int atom) const {
+	template<typename K>
+	inline V get_for_atom(const K& atom) const {
 		return pi;
 	}
 
@@ -718,6 +719,323 @@ struct is_dirichlet<symmetric_dirichlet<V>> : std::true_type { };
 template<typename V>
 struct is_dirichlet<dirichlet<V>> : std::true_type { };
 
+
+/**
+ * This struct represents a categorical distribution, where the probabilities
+ * are represented as a sum of uniform and a non-uniform component. The
+ * non-uniform component is stored as a core::hash_map from atoms to
+ * probabilities. The dense_categorical struct instead stores all probabilities
+ * contiguously as a single native array. dense_categorical should be used if
+ * the dimension is small or if the probabilities cannot be easily represented
+ * sparsely as a sum of uniform and non-uniform components. Unlike
+ * dense_categorical, the observations do not necessarily have type `unsigned
+ * int`, and can have generic type `K`.
+ *
+ * The following is an example where a sparse_categorical distribution is
+ * constructed over the domain <code>{'a', 'b', 'c', 'd', 'e'}</code>. The probability of
+ * each event is specified and 10 samples are drawn. The expected output is
+ * `d, b, d, d, b, c, a, b, e, e,`.
+ * ```{.cpp}
+ * #include <math/distributions.h>
+ * using namespace core;
+ *
+ * int main() {
+ * 	set_seed(100);
+ * 	sparse_categorical<char, double> categorical(5);
+ * 	categorical.set('a', 0.1);
+ * 	categorical.set('b', 0.4);
+ * 	categorical.set('c', 0.1);
+ * 	categorical.set('d', 0.2);
+ * 	categorical.set('e', 0.2);
+ *
+ * 	for (unsigned int i = 0; i < 10; i++) {
+ * 		char c;
+ * 		sample(categorical, c);
+ * 		printf("%c, ", c);
+ * 	}
+ * }
+ * ```
+ *
+ * \tparam K the generic type of the observations. `K` must satisfy either:
+ * 		1. [is_fundamental](http://en.cppreference.com/w/cpp/types/is_fundamental),
+ * 		2. [is_enum](http://en.cppreference.com/w/cpp/types/is_enum),
+ * 		3. [is_pointer](http://en.cppreference.com/w/cpp/types/is_pointer),
+ * 		4. implements the public static method `unsigned int hash(const T&)`,
+ * 			the public static method `void is_empty(const T&)`, implements the
+ * 			operators `==`, satisfies [CopyAssignable](http://en.cppreference.com/w/cpp/concept/CopyAssignable),
+ * 			and core::is_moveable. **NOTE:** The first argument to the `==`
+ * 			operator may be empty.
+ * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).
+ */
+template<typename K, typename V>
+struct sparse_categorical
+{
+	/**
+	 * The type of the probabilities.
+	 */
+	typedef V value_type;
+
+	/**
+	 * A hash_map that encodes the non-uniform component of the categorical
+	 * distribution. It maps from atoms to pairs, where the first entry in the
+	 * pair contains the probability and the second entry contains the log
+	 * probability.
+	 */
+	hash_map<K, pair<V, V>> probabilities;
+
+	/**
+	 * The number of dimensions of the categorical distribution.
+	 */
+	unsigned int atom_count;
+
+	/**
+	 * Stores the probability of every atom in the uniform component of the
+	 * categorical distribution (i.e. every atom that is not a key in
+	 * sparse_categorical::probabilities).
+	 */
+	V prob;
+
+	/**
+	 * Stores the total probability mass in the non-uniform component of the
+	 * categorical distribution (i.e. the sum of the probabilities in
+	 * sparse_categorical::probabilities).
+	 */
+	V dense_prob;
+
+	/**
+	 * The natural logarithm of sparse_categorical::prob.
+	 */
+	V log_prob;
+
+	/**
+	 * Initializes this categorical distribution with the given dimension
+	 * `atom_count`, setting all probabilities to zero.
+	 */
+	sparse_categorical(unsigned int atom_count) :
+		probabilities(16), atom_count(atom_count),
+		prob(1.0 / atom_count), dense_prob(0.0), log_prob(-log(atom_count)) { }
+
+	/**
+	 * Initializes this categorical distribution by copying its fields from the
+	 * given sparse_categorical distribution `src`.
+	 */
+	sparse_categorical(const sparse_categorical<K, V>& src) : probabilities(src.probabilities.table.capacity),
+			atom_count(src.atom_count), prob(src.prob), dense_prob(src.dense_prob), log_prob(src.log_prob)
+	{
+		if (!initialize(src))
+			exit(EXIT_FAILURE);
+	}
+
+	~sparse_categorical() { free(); }
+
+	/**
+	 * Sets the `probability` of the given observation `key`. This function
+	 * will make the key part of the non-uniform component of the categorical
+	 * distribution.
+	 */
+	bool set(const K& key, const V& probability) {
+		if (!probabilities.check_size())
+			return false;
+
+		bool contains; unsigned int index;
+		pair<V, V>& value = probabilities.get(key, contains, index);
+		if (!contains) {
+			probabilities.table.keys[index] = key;
+			probabilities.table.size++;
+			value.key = probability;
+			value.value = log(probability);
+		} else dense_prob -= value.key;
+
+		dense_prob += probability;
+		if (probabilities.table.size >= atom_count) {
+			prob = 0.0;
+			log_prob = -std::numeric_limits<V>::infinity();
+		} else {
+			prob = (1.0 - dense_prob) / (atom_count - probabilities.table.size);
+			log_prob = log(prob);
+		}
+		return true;
+	}
+
+	/**
+	 * Computes the conditional probability of observing the given `item` drawn
+	 * from this constant distribution, *conditioned* on a collection of
+	 * observations `conditioned`. This function assumes all the elements in
+	 * `conditioned` are identical, and that `item` and `conditioned` have
+	 * non-zero probability according to `prior`.
+	 * \returns `true` if `item` is equivalent to the first element in `conditioned`.
+	 * \returns `false` otherwise.
+	 * \tparam PriorDistribution the type of the prior distribution. This function does not use `prior`.
+	 */
+	template<typename PriorDistribution>
+	static inline V conditional(const PriorDistribution& prior,
+			const K& item, const array_histogram<K>& conditioned)
+	{
+		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
+			if (conditioned.counts.keys[i] == item) {
+				return (prior.get_for_atom(item) + conditioned.counts.values[i])
+						/ (prior.sum() + conditioned.total());
+			}
+		}
+
+		return (prior.get_for_atom(item)) / (prior.sum() + conditioned.total());
+	}
+
+	/**
+	 * Returns the log probability of observing the given `item`, drawn from a
+	 * categorical distribution, which is itself drawn from the given `prior`
+	 * distribution, *conditioned* on the set of observations `conditioned`. It
+	 * is assumed the given `prior` is a Dirichlet.
+	 * \tparam PriorDistribution a distribution type with public member
+	 * 		functions `V get_for_atom(unsigned int)` and `V sum()`.
+	 */
+	template<typename PriorDistribution>
+	static inline V log_conditional(const PriorDistribution& prior,
+			const K& item, const array_histogram<K>& conditioned)
+	{
+		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
+			if (conditioned.counts.keys[i] == item) {
+				return log((prior.get_for_atom(item) + conditioned.counts.values[i]))
+						- log(prior.sum() + conditioned.total());
+			}
+		}
+
+		return log(prior.get_for_atom(item)) - log(prior.sum() + conditioned.total());
+	}
+
+	/**
+	 * Returns the probability of observing the given collection of `items`,
+	 * each drawn independently and identically from a categorical
+	 * distribution, which is itself drawn from the given `prior` distribution,
+	 * *conditioned* on the set of observations `conditioned`. It is assumed
+	 * the given `prior` is a Dirichlet.
+	 * \tparam PriorDistribution a distribution type with public member
+	 * 		functions `V get_for_atom(unsigned int)` and `V sum()`.
+	 */
+	template<typename PriorDistribution>
+	static inline V log_conditional(const PriorDistribution& prior,
+			const array_histogram<K>& items, const array_histogram<K>& conditioned)
+	{
+		V log_probability = 0.0;
+		for (unsigned int i = 0; i < items.counts.size; i++) {
+			bool contains;
+			unsigned int count = conditioned.counts.get(items.counts.keys[i], contains);
+			if (contains) {
+				log_probability += log_rising_factorial(
+						prior.get_for_atom(items.counts.keys[i]) + count, items.counts.values[i]);
+			} else {
+				log_probability += log_rising_factorial(
+						prior.get_for_atom(items.counts.keys[i]), items.counts.values[i]);
+			}
+		}
+
+		return log_probability;
+	}
+
+	/**
+	 * Returns the probability of the given observation `key`.
+	 */
+	inline V probability(const K& observation) const {
+		bool contains;
+		const pair<V, V>& entry = probabilities.get(observation, contains);
+		if (contains) return entry.key;
+		else return prob;
+	}
+
+	/**
+	 * Returns the log probability of the given observation `key`.
+	 */
+	inline V log_probability(const K& observation) const {
+		bool contains;
+		const pair<V, V>& entry = probabilities.get(observation, contains);
+		if (contains) return entry.value;
+		else return log_prob;
+	}
+
+	/**
+	 * Frees the given sparse_categorical `distribution` by releasing the
+	 * memory resources associated with sparse_categorical::probabilities,
+	 * along with all of its elements.
+	 */
+	static inline void free(sparse_categorical<K, V>& distribution) {
+		distribution.free();
+		core::free(distribution.probabilities);
+	}
+
+private:
+	inline bool initialize(const sparse_categorical<K, V>& src) {
+		for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
+			if (!is_empty(src.probabilities.table.keys[i])) {
+				if (!init(probabilities.table.keys[i], src.probabilities.table.keys[i])) {
+					set_empty(probabilities.table.keys[i]);
+					return false;
+				}
+				probabilities.values[i] = src.probabilities.values[i];
+				probabilities.table.size++;
+			}
+		}
+		return true;
+	}
+
+	inline void free() {
+		for (auto entry : probabilities)
+			core::free(entry.key);
+	}
+
+	template<typename A, typename B>
+	friend bool init(sparse_categorical<A, B>&, const sparse_categorical<A, B>&);
+};
+
+/**
+ * Initializes the given sparse_categorical `distribution` by copying its
+ * fields from the given sparse_categorical distribution `src`.
+ */
+template<typename K, typename V>
+inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorical<K, V>& src) {
+	distribution.atom_count = src.atom_count;
+	distribution.prob = src.prob;
+	distribution.log_prob = src.log_prob;
+	distribution.dense_prob = src.dense_prob;
+	if (!hash_map_init(distribution.probabilities, src.probabilities.table.capacity)) {
+		fprintf(stderr, "init ERROR: Unable to initialize hash_map in sparse_categorical.\n");
+		return false;
+	} else if (!distribution.initialize(src)) {
+		core::free(distribution.probabilities);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Draws a sample from the given sparse_categorical `distribution` and stores
+ * it in `output`. It is possible that the observation will be sampled from the
+ * uniform component of the sparse categorical distribution, in which case this
+ * function will print an error and return `false`.
+ * \tparam K satisfies core::is_copyable.
+ */
+template<typename K, typename V>
+inline bool sample(const sparse_categorical<K, V>& distribution, K& output)
+{
+	V random = sample_uniform<V>();
+	if (random < distribution.dense_prob
+	 || distribution.probabilities.table.size >= distribution.atom_count)
+	{
+		V aggregator = 0.0;
+		const K* last = NULL;
+		for (const auto& entry : distribution.probabilities) {
+			last = &entry.key;
+			aggregator += entry.value.key;
+			if (random < aggregator)
+				return copy(entry.key, output);
+		}
+		return copy(*last, output);
+	} else {
+		fprintf(stderr, "sample ERROR: We sampled an object "
+				"not belonging to the hash_map of known objects.");
+		return false;
+	}
+}
+
 /**
  * This struct represents a categorical distribution, where the probabilities
  * are stored contiguously in a native array of type `V`. The
@@ -919,7 +1237,7 @@ struct dense_categorical
 	template<typename PriorDistribution>
 	static inline V log_probability(const PriorDistribution& prior, const array_histogram<unsigned int>& items)
 	{
-		double log_probability = 0.0;
+		V log_probability = 0.0;
 		for (unsigned int i = 0; i < items.counts.size; i++)
 			log_probability += log_rising_factorial(
 					prior.get_for_atom(items.counts.keys[i]), items.counts.values[i]);
@@ -938,14 +1256,7 @@ struct dense_categorical
 	static inline V conditional(const PriorDistribution& prior,
 			unsigned int item, const array_histogram<unsigned int>& conditioned)
 	{
-		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
-			if (conditioned.counts.keys[i] == item) {
-				return (prior.get_for_atom(item) + conditioned.counts.values[i])
-						/ (prior.sum() + conditioned.total());
-			}
-		}
-
-		return (prior.get_for_atom(item)) / (prior.sum() + conditioned.total());
+		return sparse_categorical<unsigned int, V>::conditional(prior, item, conditioned);
 	}
 
 	/**
@@ -960,14 +1271,7 @@ struct dense_categorical
 	static inline V log_conditional(const PriorDistribution& prior,
 			unsigned int item, const array_histogram<unsigned int>& conditioned)
 	{
-		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
-			if (conditioned.counts.keys[i] == item) {
-				return log((prior.get_for_atom(item) + conditioned.counts.values[i]))
-						- log(prior.sum() + conditioned.total());
-			}
-		}
-
-		return log(prior.get_for_atom(item)) - log(prior.sum() + conditioned.total());
+		return sparse_categorical<unsigned int, V>::log_conditional(prior, item, conditioned);
 	}
 
 	/**
@@ -1053,26 +1357,7 @@ struct dense_categorical
 	static inline V log_conditional(const PriorDistribution& prior,
 			const array_histogram<unsigned int>& items, const array_histogram<unsigned int>& conditioned)
 	{
-		V log_probability = 0.0;
-		unsigned int i = 0, j = 0;
-		while (i < items.counts.size && j < conditioned.counts.size) {
-			if (items.counts.keys[i] == conditioned.counts.keys[j]) {
-				log_probability +=
-						log_rising_factorial(prior.get_for_atom(items.counts.keys[i])
-						+ conditioned.counts.values[j], items.counts.values[i]);
-				i++; j++;
-			} else {
-				j++;
-			}
-		}
-
-		while (i < items.counts.size) {
-			log_probability += log_rising_factorial(
-					prior.get_for_atom(items.counts.keys[i]), items.counts.values[i]);
-			i++;
-		}
-
-		return log_probability - log_rising_factorial(prior.sum() + conditioned.total(), items.total());
+		return sparse_categorical<unsigned int, V>::log_conditional(prior, items, conditioned);
 	}
 
 	/**
@@ -1295,248 +1580,6 @@ inline bool sample(const dense_categorical<V>& distribution, unsigned int& outpu
 
 
 /**
- * This struct represents a categorical distribution, where the probabilities
- * are represented as a sum of uniform and a non-uniform component. The
- * non-uniform component is stored as a core::hash_map from atoms to
- * probabilities. The dense_categorical struct instead stores all probabilities
- * contiguously as a single native array. dense_categorical should be used if
- * the dimension is small or if the probabilities cannot be easily represented
- * sparsely as a sum of uniform and non-uniform components. Unlike
- * dense_categorical, the observations do not necessarily have type `unsigned
- * int`, and can have generic type `K`.
- *
- * The following is an example where a sparse_categorical distribution is
- * constructed over the domain <code>{'a', 'b', 'c', 'd', 'e'}</code>. The probability of
- * each event is specified and 10 samples are drawn. The expected output is
- * `d, b, d, d, b, c, a, b, e, e,`.
- * ```{.cpp}
- * #include <math/distributions.h>
- * using namespace core;
- *
- * int main() {
- * 	set_seed(100);
- * 	sparse_categorical<char, double> categorical(5);
- * 	categorical.set('a', 0.1);
- * 	categorical.set('b', 0.4);
- * 	categorical.set('c', 0.1);
- * 	categorical.set('d', 0.2);
- * 	categorical.set('e', 0.2);
- *
- * 	for (unsigned int i = 0; i < 10; i++) {
- * 		char c;
- * 		sample(categorical, c);
- * 		printf("%c, ", c);
- * 	}
- * }
- * ```
- *
- * \tparam K the generic type of the observations. `K` must satisfy either:
- * 		1. [is_fundamental](http://en.cppreference.com/w/cpp/types/is_fundamental),
- * 		2. [is_enum](http://en.cppreference.com/w/cpp/types/is_enum),
- * 		3. [is_pointer](http://en.cppreference.com/w/cpp/types/is_pointer),
- * 		4. implements the public static method `unsigned int hash(const T&)`,
- * 			the public static method `void is_empty(const T&)`, implements the
- * 			operators `==`, satisfies [CopyAssignable](http://en.cppreference.com/w/cpp/concept/CopyAssignable),
- * 			and core::is_moveable. **NOTE:** The first argument to the `==`
- * 			operator may be empty.
- * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).
- */
-template<typename K, typename V>
-struct sparse_categorical
-{
-	/**
-	 * The type of the probabilities.
-	 */
-	typedef V value_type;
-
-	/**
-	 * A hash_map that encodes the non-uniform component of the categorical
-	 * distribution. It maps from atoms to pairs, where the first entry in the
-	 * pair contains the probability and the second entry contains the log
-	 * probability.
-	 */
-	hash_map<K, pair<V, V>> probabilities;
-
-	/**
-	 * The number of dimensions of the categorical distribution.
-	 */
-	unsigned int atom_count;
-
-	/**
-	 * Stores the probability of every atom in the uniform component of the
-	 * categorical distribution (i.e. every atom that is not a key in
-	 * sparse_categorical::probabilities).
-	 */
-	V prob;
-
-	/**
-	 * Stores the total probability mass in the non-uniform component of the
-	 * categorical distribution (i.e. the sum of the probabilities in
-	 * sparse_categorical::probabilities).
-	 */
-	V dense_prob;
-
-	/**
-	 * The natural logarithm of sparse_categorical::prob.
-	 */
-	V log_prob;
-
-	/**
-	 * Initializes this categorical distribution with the given dimension
-	 * `atom_count`, setting all probabilities to zero.
-	 */
-	sparse_categorical(unsigned int atom_count) :
-		probabilities(16), atom_count(atom_count),
-		prob(1.0 / atom_count), dense_prob(0.0), log_prob(-log(atom_count)) { }
-
-	/**
-	 * Initializes this categorical distribution by copying its fields from the
-	 * given sparse_categorical distribution `src`.
-	 */
-	sparse_categorical(const sparse_categorical<K, V>& src) : probabilities(src.probabilities.table.capacity),
-			atom_count(src.atom_count), prob(src.prob), dense_prob(src.dense_prob), log_prob(src.log_prob)
-	{
-		if (!initialize(src))
-			exit(EXIT_FAILURE);
-	}
-
-	~sparse_categorical() { free(); }
-
-	/**
-	 * Sets the `probability` of the given observation `key`. This function
-	 * will make the key part of the non-uniform component of the categorical
-	 * distribution.
-	 */
-	bool set(const K& key, const V& probability) {
-		if (!probabilities.check_size())
-			return false;
-
-		bool contains; unsigned int index;
-		pair<V, V>& value = probabilities.get(key, contains, index);
-		if (!contains) {
-			probabilities.table.keys[index] = key;
-			probabilities.table.size++;
-			value.key = probability;
-			value.value = log(probability);
-		} else dense_prob -= value.key;
-
-		dense_prob += probability;
-		if (probabilities.table.size >= atom_count) {
-			prob = 0.0;
-			log_prob = -std::numeric_limits<V>::infinity();
-		} else {
-			prob = (1.0 - dense_prob) / (atom_count - probabilities.table.size);
-			log_prob = log(prob);
-		}
-		return true;
-	}
-
-	/**
-	 * Returns the probability of the given observation `key`.
-	 */
-	inline V probability(const K& observation) const {
-		bool contains;
-		const pair<V, V>& entry = probabilities.get(observation, contains);
-		if (contains) return entry.key;
-		else return prob;
-	}
-
-	/**
-	 * Returns the log probability of the given observation `key`.
-	 */
-	inline V log_probability(const K& observation) const {
-		bool contains;
-		const pair<V, V>& entry = probabilities.get(observation, contains);
-		if (contains) return entry.value;
-		else return log_prob;
-	}
-
-	/**
-	 * Frees the given sparse_categorical `distribution` by releasing the
-	 * memory resources associated with sparse_categorical::probabilities,
-	 * along with all of its elements.
-	 */
-	static inline void free(sparse_categorical<K, V>& distribution) {
-		distribution.free();
-		core::free(distribution.probabilities);
-	}
-
-private:
-	inline bool initialize(const sparse_categorical<K, V>& src) {
-		for (unsigned int i = 0; i < src.probabilities.table.capacity; i++) {
-			if (!is_empty(src.probabilities.table.keys[i])) {
-				if (!init(probabilities.table.keys[i], src.probabilities.table.keys[i])) {
-					set_empty(probabilities.table.keys[i]);
-					return false;
-				}
-				probabilities.values[i] = src.probabilities.values[i];
-				probabilities.table.size++;
-			}
-		}
-		return true;
-	}
-
-	inline void free() {
-		for (auto entry : probabilities)
-			core::free(entry.key);
-	}
-
-	template<typename A, typename B>
-	friend bool init(sparse_categorical<A, B>&, const sparse_categorical<A, B>&);
-};
-
-/**
- * Initializes the given sparse_categorical `distribution` by copying its
- * fields from the given sparse_categorical distribution `src`.
- */
-template<typename K, typename V>
-inline bool init(sparse_categorical<K, V>& distribution, const sparse_categorical<K, V>& src) {
-	distribution.atom_count = src.atom_count;
-	distribution.prob = src.prob;
-	distribution.log_prob = src.log_prob;
-	distribution.dense_prob = src.dense_prob;
-	if (!hash_map_init(distribution.probabilities, src.probabilities.table.capacity)) {
-		fprintf(stderr, "init ERROR: Unable to initialize hash_map in sparse_categorical.\n");
-		return false;
-	} else if (!distribution.initialize(src)) {
-		core::free(distribution.probabilities);
-		return false;
-	}
-	return true;
-}
-
-/**
- * Draws a sample from the given sparse_categorical `distribution` and stores
- * it in `output`. It is possible that the observation will be sampled from the
- * uniform component of the sparse categorical distribution, in which case this
- * function will print an error and return `false`.
- * \tparam K satisfies core::is_copyable.
- */
-template<typename K, typename V>
-inline bool sample(const sparse_categorical<K, V>& distribution, K& output)
-{
-	V random = sample_uniform<V>();
-	if (random < distribution.dense_prob
-	 || distribution.probabilities.table.size >= distribution.atom_count)
-	{
-		V aggregator = 0.0;
-		const K* last = NULL;
-		for (const auto& entry : distribution.probabilities) {
-			last = &entry.key;
-			aggregator += entry.value.key;
-			if (random < aggregator)
-				return copy(entry.key, output);
-		}
-		return copy(*last, output);
-	} else {
-		fprintf(stderr, "sample ERROR: We sampled an object "
-				"not belonging to the hash_map of known objects.");
-		return false;
-	}
-}
-
-
-/**
  * A struct that represents the [degenerate/constant distribution](https://en.wikipedia.org/wiki/Degenerate_distribution).
  * \tparam K the type of the observation, which must implement the operator `==`.
  */
@@ -1739,7 +1782,16 @@ struct uniform_distribution {
 	inline V log_probability(const K& observation) const {
 		return log_prob;
 	}
+
+	static inline void free(const uniform_distribution<V>& distribution) { }
 };
+
+template<typename V>
+inline bool init(uniform_distribution<V>& distribution, unsigned int count) {
+	distribution.prob = 1.0 / count;
+	distribution.log_prob = -log((V) count);
+	return true;
+}
 
 
 /**
@@ -1822,7 +1874,7 @@ struct sequence_distribution
 	 * \tparam ElementDistribution a distribution type that can be constructed
 	 * 		using a single parameter with type ElementDistribution&.
 	 */
-	sequence_distribution(ElementDistribution& element_distribution, double end_probability) :
+	sequence_distribution(ElementDistribution& element_distribution, V end_probability) :
 		end_probability(end_probability),
 		log_end_probability(log(end_probability)),
 		log_not_end_probability(log(1.0 - end_probability)),
@@ -1838,9 +1890,9 @@ struct sequence_distribution
 	 * 		particular index of the sequence.
 	 */
 	template<typename SequenceType>
-	inline double probability(const SequenceType& sequence) const {
+	inline V probability(const SequenceType& sequence) const {
 		if (sequence.length == 0) return 0.0;
-		double product = element_distribution.probability(sequence[0]);
+		V product = element_distribution.probability(sequence[0]);
 		for (unsigned int i = 1; i < sequence.length; i++)
 			product *= element_distribution.probability(sequence[i]) * (1.0 - end_probability);
 		return product * end_probability;
@@ -1855,9 +1907,9 @@ struct sequence_distribution
 	 * 		particular index of the sequence.
 	 */
 	template<typename SequenceType>
-	inline double log_probability(const SequenceType& sequence) const {
-		if (sequence.length == 0) return -std::numeric_limits<double>::infinity();
-		double sum = element_distribution.log_probability(sequence[0]);
+	inline V log_probability(const SequenceType& sequence) const {
+		if (sequence.length == 0) return -std::numeric_limits<V>::infinity();
+		V sum = element_distribution.log_probability(sequence[0]);
 		for (unsigned int i = 1; i < sequence.length; i++)
 			sum += element_distribution.log_probability(sequence[i]) + log_not_end_probability;
 		return sum + log_end_probability;
