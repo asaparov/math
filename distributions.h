@@ -10,7 +10,7 @@
 
 #include <core/random.h>
 
-#include "histogram.h"
+#include "multiset.h"
 #include "sparse_vector.h"
 #include "log.h"
 
@@ -869,7 +869,7 @@ struct sparse_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V conditional(const PriorDistribution& prior,
-			const K& item, const array_histogram<K>& conditioned)
+			const K& item, const array_multiset<K>& conditioned)
 	{
 		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
 			if (conditioned.counts.keys[i] == item) {
@@ -891,7 +891,7 @@ struct sparse_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			const K& item, const array_histogram<K>& conditioned)
+			const K& item, const array_multiset<K>& conditioned)
 	{
 		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
 			if (conditioned.counts.keys[i] == item) {
@@ -914,7 +914,7 @@ struct sparse_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			const array_histogram<K>& items, const array_histogram<K>& conditioned)
+			const array_multiset<K>& items, const array_multiset<K>& conditioned)
 	{
 		V log_probability = 0.0;
 		for (unsigned int i = 0; i < items.counts.size; i++) {
@@ -1177,7 +1177,7 @@ struct dense_categorical
 	 * Returns the joint probability of observing the given collection of
 	 * `items`, drawn independently and identically from this distribution.
 	 */
-	inline V probability(const array_histogram<unsigned int>& items) const {
+	inline V probability(const array_multiset<unsigned int>& items) const {
 		V value = 1.0;
 		for (unsigned int i = 0; i < items.counts.size; i++)
 			value *= pow(probability(items.counts.keys[i]), items.counts.values[i]);
@@ -1195,7 +1195,7 @@ struct dense_categorical
 	 * Returns the joint log probability of observing the given collection of
 	 * `items`, drawn independently and identically from this distribution.
 	 */
-	inline V log_probability(const array_histogram<unsigned int>& items) const {
+	inline V log_probability(const array_multiset<unsigned int>& items) const {
 		V value = 0.0;
 		for (const auto& entry : items.counts)
 			value = log_probability(entry.key) * entry.value;
@@ -1235,7 +1235,7 @@ struct dense_categorical
 	 * 		functions `V get_for_atom(unsigned int)` and `V sum()`.
 	 */
 	template<typename PriorDistribution>
-	static inline V log_probability(const PriorDistribution& prior, const array_histogram<unsigned int>& items)
+	static inline V log_probability(const PriorDistribution& prior, const array_multiset<unsigned int>& items)
 	{
 		V log_probability = 0.0;
 		for (unsigned int i = 0; i < items.counts.size; i++)
@@ -1254,7 +1254,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V conditional(const PriorDistribution& prior,
-			unsigned int item, const array_histogram<unsigned int>& conditioned)
+			unsigned int item, const array_multiset<unsigned int>& conditioned)
 	{
 		return sparse_categorical<unsigned int, V>::conditional(prior, item, conditioned);
 	}
@@ -1269,7 +1269,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			unsigned int item, const array_histogram<unsigned int>& conditioned)
+			unsigned int item, const array_multiset<unsigned int>& conditioned)
 	{
 		return sparse_categorical<unsigned int, V>::log_conditional(prior, item, conditioned);
 	}
@@ -1284,7 +1284,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			unsigned int item, const hash_histogram<unsigned int>& conditioned)
+			unsigned int item, const hash_multiset<unsigned int>& conditioned)
 	{
 		bool contains;
 		unsigned int count = conditioned.counts.get(item, contains);
@@ -1308,7 +1308,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional_without(const PriorDistribution& prior,
-			unsigned int holdout, const array_histogram<unsigned int>& conditioned)
+			unsigned int holdout, const array_multiset<unsigned int>& conditioned)
 	{
 		for (unsigned int i = 0; i < conditioned.counts.size; i++) {
 			if (conditioned.counts.keys[i] == holdout) {
@@ -1332,7 +1332,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional_without(const PriorDistribution& prior,
-			unsigned int holdout, const hash_histogram<unsigned int>& conditioned)
+			unsigned int holdout, const hash_multiset<unsigned int>& conditioned)
 	{
 		bool contains;
 		unsigned int count = conditioned.counts.get(holdout, contains);
@@ -1355,7 +1355,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			const array_histogram<unsigned int>& items, const array_histogram<unsigned int>& conditioned)
+			const array_multiset<unsigned int>& items, const array_multiset<unsigned int>& conditioned)
 	{
 		return sparse_categorical<unsigned int, V>::log_conditional(prior, items, conditioned);
 	}
@@ -1371,7 +1371,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional(const PriorDistribution& prior,
-			const array_histogram<unsigned int>& items, const hash_histogram<unsigned int>& conditioned)
+			const array_multiset<unsigned int>& items, const hash_multiset<unsigned int>& conditioned)
 	{
 		V log_probability = 0.0;
 		for (unsigned int i = 0; i < items.counts.size; i++) {
@@ -1401,7 +1401,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional_without(const PriorDistribution& prior,
-			const array_histogram<unsigned int>& holdout, const array_histogram<unsigned int>& conditioned)
+			const array_multiset<unsigned int>& holdout, const array_multiset<unsigned int>& conditioned)
 	{
 		V log_probability = 0.0;
 		unsigned int i = 0, j = 0;
@@ -1436,7 +1436,7 @@ struct dense_categorical
 	 */
 	template<typename PriorDistribution>
 	static inline V log_conditional_without(const PriorDistribution& prior,
-			const array_histogram<unsigned int>& holdout, const hash_histogram<unsigned int>& conditioned)
+			const array_multiset<unsigned int>& holdout, const hash_multiset<unsigned int>& conditioned)
 	{
 		V log_probability = 0.0;
 		for (unsigned int i = 0; i < holdout.counts.size; i++) {
@@ -1598,7 +1598,7 @@ struct constant
 	 */
 	template<typename PriorDistribution>
 	static inline bool conditional(const PriorDistribution& prior,
-			const K& item, const array_histogram<K>& conditioned)
+			const K& item, const array_multiset<K>& conditioned)
 	{
 		return item == conditioned.counts.keys[0];
 	}
@@ -1616,7 +1616,7 @@ struct constant
 	 */
 	template<typename PriorDistribution>
 	static inline bool conditional(const PriorDistribution& prior,
-			const array_histogram<K>& items, const array_histogram<K>& conditioned)
+			const array_multiset<K>& items, const array_multiset<K>& conditioned)
 	{
 		return items.counts.keys[0] == conditioned.counts.keys[0];
 	}
@@ -1633,7 +1633,7 @@ struct constant
 	 */
 	template<typename PriorDistribution>
 	static inline double log_conditional(const PriorDistribution& prior,
-			const K& item, const array_histogram<K>& conditioned)
+			const K& item, const array_multiset<K>& conditioned)
 	{
 		if (item == conditioned.counts.keys[0])
 			return 0.0;
@@ -1653,7 +1653,7 @@ struct constant
 	 */
 	template<typename PriorDistribution>
 	static inline double log_conditional(const PriorDistribution& prior,
-			const array_histogram<K>& items, const array_histogram<K>& conditioned)
+			const array_multiset<K>& items, const array_multiset<K>& conditioned)
 	{
 		if (items.counts.keys[0] == conditioned.counts.keys[0])
 			return 0.0;
@@ -1680,11 +1680,11 @@ struct constant
 	 * which is itself drawn from the given `prior` distribution.
 	 * \tparam PriorDistribution a distribution type that contains the typedef
 	 * 		`value_type` implements the public member function `value_type
-	 * 		probability(const array_histogram<K>&)`.
+	 * 		probability(const array_multiset<K>&)`.
 	 */
 	template<typename PriorDistribution>
 	static inline typename PriorDistribution::value_type probability(
-		const PriorDistribution& prior, const array_histogram<K>& items)
+		const PriorDistribution& prior, const array_multiset<K>& items)
 	{
 		return prior.probability(items);
 	}
@@ -1709,11 +1709,11 @@ struct constant
 	 * distribution, which is itself drawn from the given `prior` distribution.
 	 * \tparam PriorDistribution a distribution type that contains the typedef
 	 * 		`value_type` implements the public member function `value_type
-	 * 		log_probability(const array_histogram<K>&)`.
+	 * 		log_probability(const array_multiset<K>&)`.
 	 */
 	template<typename PriorDistribution>
 	static inline typename PriorDistribution::value_type log_probability(
-		const PriorDistribution& prior, const array_histogram<K>& items)
+		const PriorDistribution& prior, const array_multiset<K>& items)
 	{
 		return prior.log_probability(items);
 	}
@@ -1730,7 +1730,7 @@ struct constant
 	 */
 	template<typename PriorDistribution>
 	static inline bool sample(const PriorDistribution& prior,
-			const array_histogram<K>& observations, K& sample)
+			const array_multiset<K>& observations, K& sample)
 	{
 		return copy(observations.counts.keys[0], sample);
 	}
