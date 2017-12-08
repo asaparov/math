@@ -87,9 +87,9 @@ inline void max(V& max, const T* src, unsigned int length, unsigned int skip)
  * in `max`.
  * 
  * So more precisely, this function computes:
- * \f[ max_i \{ f(\text{src}[i \cdot \text{skip}]) + f(\text{prior}[i]) \}. \f]
+ * \f[ max_i \{ f(\text{src}[i \cdot \text{skip}]) + g(\text{prior}[i]) \}. \f]
  * where \f$ f(\cdot) \f$ is the function `V log_probability(const T&)` and
- * `V log_probability(const P&)`.
+ * \f$ g(\cdot) \f$ is the function `V log_probability(const P&)`.
  *
  * \tparam T the type of every element in `src`, for which the function `V log_probability(const T&)` is defined.
  * \tparam P the type of every element in `prior`, for which the function `V log_probability(const P&)` is defined.
@@ -131,9 +131,9 @@ inline V max(const T* src, unsigned int length, unsigned int skip)
  * in `max`.
  *
  * So more precisely, this function computes:
- * \f[ max_i \{ f(\text{src}[i \cdot \text{skip}]) + f(\text{prior}[i]) \}. \f]
+ * \f[ max_i \{ f(\text{src}[i \cdot \text{skip}]) + g(\text{prior}[i]) \}. \f]
  * where \f$ f(\cdot) \f$ is the function `V log_probability(const T&)` and
- * `V log_probability(const P&)`.
+ * \f$ g(\cdot) \f$ is the function `V log_probability(const P&)`.
  *
  * \tparam T the type of every element in `src`, for which the function `V log_probability(const T&)` is defined.
  * \tparam P the type of every element in `prior`, for which the function `V log_probability(const P&)` is defined.
@@ -172,7 +172,8 @@ inline auto max(const core::array<T>& src) -> decltype(max(src.data, src.length)
 }
 
 /**
- * Returns \f$ \sum_{i=0}^{\text{length}-1} \exp\{ f(\text{src}[i * \text{skip}]) - \text{shift} \} \f$
+ * This function returns
+ * \f[ \sum_{i=0}^{\text{length}-1} \exp\{ f(\text{src}[i * \text{skip}]) - \text{shift} \} \f]
  * where \f$ f(\cdot) \f$ is the function `V log_probability(const T&)`.
  * \tparam T the type of every element in `src`, for which the function `V log_probability(const T&)` is defined.
  * \tparam V the type of the log probabilities.
@@ -186,9 +187,10 @@ inline V sumexp(const T* src, unsigned int length, unsigned int skip, const V& s
 }
 
 /**
- * Returns \f$ \sum_{i=0}^{\text{length}-1} \exp\{ f(\text{src}[i * \text{skip}]) + f(\text{prior}[i]) - \text{shift} \} \f$
+ * This function returns
+ * \f[ \sum_{i=0}^{\text{length}-1} \exp\{ f(\text{src}[i * \text{skip}]) + g(\text{prior}[i]) - \text{shift} \} \f]
  * where \f$ f(\cdot) \f$ is the function `V log_probability(const T&)` and
- * `V log_probability(const P&)`.
+ * \f$ g(\cdot) \f$ is the function `V log_probability(const P&)`.
  * \tparam T the type of every element in `src`, for which the function `V log_probability(const T&)` is defined.
  * \tparam P the type of every element in `prior`, for which the function `V log_probability(const P&)` is defined.
  * \tparam V the type of the log probabilities.
@@ -239,11 +241,11 @@ inline void normalize_exp(const T* src, V* dst,
 
 /**
  * This function computes
- * \f$ \exp\{ f(\text{src}[i * \text{skip}]) + f(\text{prior}[i]) - \text{normalization} \} \f$
+ * \f[ \exp\{ f(\text{src}[i * \text{skip}]) + g(\text{prior}[i]) - \text{normalization} \} \f]
  * and stores the result in `dst[i]`, where `i` ranges from `0` to
  * `length - 1`, and \f$ f(\cdot) \f$ is the function
- * `V log_probability(const T&)` and `V log_probability(const P&)`. Note that
- * `src` and `dst` can be the same.
+ * `V log_probability(const T&)` and \f$ g(\cdot) \f$ is the function
+ * `V log_probability(const P&)`. Note that `src` and `dst` can be the same.
  * \tparam T the type of every element in `src`, for which the function `V log_probability(const T&)` is defined.
  * \tparam P the type of every element in `prior`, for which the function `V log_probability(const P&)` is defined.
  * \tparam V the type of the log probabilities.
