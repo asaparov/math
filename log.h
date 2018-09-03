@@ -34,7 +34,6 @@
 #include <core/array.h>
 
 #include <math.h>
-#include <mutex>
 
 /**
  * This value is used for `log(0)` in some operations to avoid floating-point
@@ -357,9 +356,7 @@ inline V logdiffexp(const V& first, const V& second) {
 }
 
 /**
- * This structure caches natural logarithms of positive integers. An
- * [std::mutex](http://en.cppreference.com/w/cpp/thread/mutex) is used to allow
- * safe simultaneous use of this cache from multiple threads.
+ * This structure caches natural logarithms of positive integers.
  *
  * The following example displays a typical use-case of this cache. The
  * expected output is
@@ -387,7 +384,6 @@ template<typename V>
 struct log_cache {
 	V* values;
 	unsigned int size;
-	std::mutex lock;
 
 	/**
 	 * Constructs the cache with the given `initial_size`. The natural
@@ -405,9 +401,7 @@ struct log_cache {
 	 */
 	inline bool ensure_size(unsigned int requested_size) {
 		if (requested_size > size) {
-			lock.lock();
 			bool result = resize(requested_size);
-			lock.unlock();
 			return result;
 		}
 		return true;
@@ -426,7 +420,7 @@ struct log_cache {
 	 * Returns a static instance of a log_cache, with type `V`.
 	 */
 	static inline log_cache<V>& instance() {
-		static log_cache<V> cache(16);
+		static thread_local log_cache<V> cache(16);
 		return cache;
 	}
 
