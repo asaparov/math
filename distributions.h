@@ -762,7 +762,7 @@ struct is_dirichlet<dirichlet<V>> : std::true_type { };
  * 		3. [is_pointer](http://en.cppreference.com/w/cpp/types/is_pointer),
  * 		4. implements the public static method `unsigned int hash(const T&)`,
  * 			the public static method `void is_empty(const T&)`, implements the
- * 			operators `==`, satisfies [CopyAssignable](http://en.cppreference.com/w/cpp/concept/CopyAssignable),
+ * 			operators `==`, satisfies [CopyAssignable](https://en.cppreference.com/w/cpp/named_req/CopyAssignable),
  * 			and core::is_moveable. **NOTE:** The first argument to the `==`
  * 			operator may be empty.
  * \tparam V satisfies [is_arithmetic](http://en.cppreference.com/w/cpp/types/is_arithmetic).

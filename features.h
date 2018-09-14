@@ -327,7 +327,7 @@ struct feature_set_sorter {
  * feature_set_sorter `sorter`.
  * \tparam FeatureSet a feature set type that implements the function
  * 		`T get_feature(unsigned int)` where `T` is any type that satisfies
- * 		[LessThanComparable](http://en.cppreference.com/w/cpp/concept/LessThanComparable).
+ * 		[LessThanComparable](https://en.cppreference.com/w/cpp/named_req/LessThanComparable).
  */
 template<typename FeatureSet>
 inline bool less_than(

@@ -43,7 +43,7 @@
 #ifndef HISTOGRAM_H_
 #define HISTOGRAM_H_
 
-#include "core/map.h"
+#include <core/map.h>
 #include <core/io.h>
 
 using namespace core;
@@ -58,8 +58,8 @@ using namespace core;
  * and should be used if the number of distinct elements is expected to be
  * large.
  *
- * \tparam T satisfies [LessThanComparable](http://en.cppreference.com/w/cpp/concept/LessThanComparable)
- * 		and [CopyAssignable](http://en.cppreference.com/w/cpp/concept/CopyAssignable).
+ * \tparam T satisfies [LessThanComparable](https://en.cppreference.com/w/cpp/named_req/LessThanComparable)
+ * 		and [CopyAssignable](https://en.cppreference.com/w/cpp/named_req/CopyAssignable).
  */
 template<typename T>
 struct array_multiset {
@@ -475,7 +475,7 @@ inline void print(const array_multiset<T>& s, FILE* out, Printer&&... printer) {
  * 		3. [is_pointer](http://en.cppreference.com/w/cpp/types/is_pointer),
  * 		4. implements the public static method `unsigned int hash(const T&)`,
  * 			the public static method `void is_empty(const T&)`, implements the
- * 			operators `==`, satisfies [CopyAssignable](http://en.cppreference.com/w/cpp/concept/CopyAssignable),
+ * 			operators `==`, satisfies [CopyAssignable](https://en.cppreference.com/w/cpp/named_req/CopyAssignable),
  * 			and core::is_moveable. **NOTE:** The first argument to the `==`
  * 			operator may be empty.
  */
