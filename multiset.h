@@ -625,7 +625,7 @@ struct hash_multiset {
 	 * the underlying hash_map by calling core::free on each element.
 	 */
 	static inline void free(hash_multiset<T>& s) {
-		free();
+		s.free();
 		core::free(s.counts);
 	}
 
