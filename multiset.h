@@ -60,8 +60,10 @@ using namespace core;
  *
  * \tparam T satisfies [LessThanComparable](https://en.cppreference.com/w/cpp/named_req/LessThanComparable)
  * 		and [CopyAssignable](https://en.cppreference.com/w/cpp/named_req/CopyAssignable).
+ * \tparam AutomaticallyFree whether the keys of the underlying core::hash_map
+ * 		are freed when this object is freed.
  */
-template<typename T>
+template<typename T, bool AutomaticallyFree = true>
 struct array_multiset {
 	/**
 	 * The underlying array_map.
@@ -242,8 +244,10 @@ struct array_multiset {
 	 * keys in the underlying array_map by calling core::free on each element.
 	 */
 	inline void clear() {
-		for (auto entry : counts)
-			core::free(entry.key);
+		if (AutomaticallyFree) {
+			for (auto entry : counts)
+				core::free(entry.key);
+		}
 		counts.clear();
 		sum = 0;
 	}
@@ -261,7 +265,7 @@ struct array_multiset {
 				core::move(counts.keys[i], counts.keys[new_length]);
 				counts.values[new_length] = counts.values[i];
 				new_length++;
-			} else {
+			} else if (AutomaticallyFree) {
 				core::free(counts.keys[i]);
 			}
 		}
@@ -337,8 +341,10 @@ struct array_multiset {
 
 private:
 	inline void free() {
-		for (auto entry : counts)
-			core::free(entry.key);
+		if (AutomaticallyFree) {
+			for (auto entry : counts)
+				core::free(entry.key);
+		}
 	}
 };
 
@@ -478,8 +484,10 @@ inline void print(const array_multiset<T>& s, FILE* out, Printer&&... printer) {
  * 			operators `==`, satisfies [CopyAssignable](https://en.cppreference.com/w/cpp/named_req/CopyAssignable),
  * 			and core::is_moveable. **NOTE:** The first argument to the `==`
  * 			operator may be empty.
+ * \tparam AutomaticallyFree whether the keys of the underlying core::hash_map
+ * 		are freed when this object is freed.
  */
-template<typename T>
+template<typename T, bool AutomaticallyFree = true>
 struct hash_multiset {
 	/**
 	 * The underlying hash_map.
@@ -631,8 +639,10 @@ struct hash_multiset {
 
 private:
 	inline void free() {
-		for (auto entry : counts)
-			core::free(entry.key);
+		if (AutomaticallyFree) {
+			for (auto entry : counts)
+				core::free(entry.key);
+		}
 	}
 };
 
