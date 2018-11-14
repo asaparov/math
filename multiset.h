@@ -140,7 +140,8 @@ struct array_multiset {
 	/**
 	 * Adds the given multiset `items` to this multiset.
 	 */
-	bool add(const array_multiset<T>& items) {
+	template<bool OtherAutomaticallyFree>
+	bool add(const array_multiset<T, OtherAutomaticallyFree>& items) {
 		unsigned int i = 0, j = 0;
 		unsigned int new_length = (unsigned int) counts.size;
 		while (i < counts.size && j < items.counts.size) {
@@ -214,7 +215,8 @@ struct array_multiset {
 	 * (i.e. this multiset contains all the keys in `items` with frequencies
 	 * at least as large).
 	 */
-	void subtract(const array_multiset<T>& items)
+	template<bool OtherAutomaticallyFree>
+	void subtract(const array_multiset<T, OtherAutomaticallyFree>& items)
 	{
 		unsigned int i = 0, j = 0;
 		while (i < counts.size && j < items.counts.size) {
@@ -286,7 +288,7 @@ struct array_multiset {
 	/**
 	 * Returns the hash function evaluated on the given array_multiset `key`.
 	 */
-	static inline unsigned int hash(const array_multiset<T>& key) {
+	static inline unsigned int hash(const array_multiset<T, AutomaticallyFree>& key) {
 		return default_hash(key.counts.keys, key.counts.size)
 				^ default_hash(key.counts.values, key.counts.size);
 	}
@@ -295,7 +297,8 @@ struct array_multiset {
 	 * Moves the array_multiset `src` into `dst`. Note that this function
 	 * merely copies pointers, and not contents.
 	 */
-	static inline void move(const array_multiset<T>& src, array_multiset<T>& dst) {
+	template<bool OtherAutomaticallyFree>
+	static inline void move(const array_multiset<T, AutomaticallyFree>& src, array_multiset<T, OtherAutomaticallyFree>& dst) {
 		array_map<T, unsigned int>::move(src.counts, dst.counts);
 		dst.sum = src.sum;
 	}
@@ -303,7 +306,8 @@ struct array_multiset {
 	/**
 	 * Swaps the contents of the given array_multisets `first` and `second`.
 	 */
-	static inline void swap(array_multiset<T>& first, array_multiset<T>& second) {
+	template<bool OtherAutomaticallyFree>
+	static inline void swap(array_multiset<T, AutomaticallyFree>& first, array_multiset<T, OtherAutomaticallyFree>& second) {
 		core::swap(first.counts, second.counts);
 		core::swap(first.sum, second.sum);
 	}
@@ -311,7 +315,8 @@ struct array_multiset {
 	/**
 	 * Copies the contents of the array_multiset `src` into `dst`.
 	 */
-	static inline bool copy(const array_multiset<T>& src, array_multiset<T>& dst) {
+	template<bool OtherAutomaticallyFree>
+	static inline bool copy(const array_multiset<T, AutomaticallyFree>& src, array_multiset<T, OtherAutomaticallyFree>& dst) {
 		if (!init(dst, (unsigned int) src.counts.size)) {
 			fprintf(stderr, "array_multiset.copy ERROR: Unable to initialize destination multiset.\n");
 			return false;
@@ -326,7 +331,7 @@ struct array_multiset {
 	}
 
 	template<typename Metric = default_metric>
-	static inline long unsigned int size_of(const array_multiset<T>& s, const Metric& metric) {
+	static inline long unsigned int size_of(const array_multiset<T, AutomaticallyFree>& s, const Metric& metric) {
 		return core::size_of(s.counts, metric) + core::size_of(s.sum);
 	}
 
@@ -334,7 +339,7 @@ struct array_multiset {
 	 * Frees the given array_multiset `s`. This function also frees the keys in
 	 * the underlying array_map by calling core::free on each element.
 	 */
-	static inline void free(array_multiset<T>& s) {
+	static inline void free(array_multiset<T, AutomaticallyFree>& s) {
 		s.free();
 		core::free(s.counts);
 	}
@@ -352,8 +357,8 @@ private:
  * Initializes an empty array_multiset `s` with the given `initial_capacity`
  * for the underlying array_map array_multiset::counts.
  */
-template<typename T>
-inline bool init(array_multiset<T>& s, unsigned int initial_capacity) {
+template<typename T, bool AutomaticallyFree>
+inline bool init(array_multiset<T, AutomaticallyFree>& s, unsigned int initial_capacity) {
 	s.sum = 0;
 	return array_map_init(s.counts, initial_capacity);
 }
@@ -362,8 +367,8 @@ inline bool init(array_multiset<T>& s, unsigned int initial_capacity) {
  * Initializes the given array_multiset `s` by copying the contents from the
  * given array_multiset `src`.
  */
-template<typename T>
-inline bool init(array_multiset<T>& s, const array_multiset<T>& src) {
+template<typename T, bool AutomaticallyFree, bool OtherAutomaticallyFree>
+inline bool init(array_multiset<T, AutomaticallyFree>& s, const array_multiset<T, OtherAutomaticallyFree>& src) {
 	if (!array_map_init(s.counts, (unsigned int) src.counts.size))
 		return false;
 	for (unsigned int i = 0; i < src.counts.size; i++) {
@@ -378,8 +383,8 @@ inline bool init(array_multiset<T>& s, const array_multiset<T>& src) {
 /**
  * Returns true if and only if the array_multiset `first` is equivalent to `second`.
  */
-template<typename T>
-inline bool operator == (const array_multiset<T>& first, const array_multiset<T>& second) {
+template<typename T, bool AutomaticallyFree, bool OtherAutomaticallyFree>
+inline bool operator == (const array_multiset<T, AutomaticallyFree>& first, const array_multiset<T, OtherAutomaticallyFree>& second) {
 	if (first.sum != second.sum)
 		return false;
 	unsigned int i = 0, j = 0;
@@ -414,8 +419,8 @@ inline bool operator == (const array_multiset<T>& first, const array_multiset<T>
 /**
  * Returns false if and only if the array_multiset `first` is equivalent to `second`.
  */
-template<typename T>
-inline bool operator != (const array_multiset<T>& first, const array_multiset<T>& second) {
+template<typename T, bool AutomaticallyFree, bool OtherAutomaticallyFree>
+inline bool operator != (const array_multiset<T, AutomaticallyFree>& first, const array_multiset<T, OtherAutomaticallyFree>& second) {
 	return !(first == second);
 }
 
@@ -423,8 +428,8 @@ inline bool operator != (const array_multiset<T>& first, const array_multiset<T>
  * Reads an array_multiset structure `s` from `in`.
  * \param reader a scribe that is passed to `read` for core::array_map.
  */
-template<typename T, typename... Reader>
-inline bool read(array_multiset<T>& s, FILE* in, Reader&&... reader) {
+template<typename T, bool AutomaticallyFree, typename... Reader>
+inline bool read(array_multiset<T, AutomaticallyFree>& s, FILE* in, Reader&&... reader) {
 	if (!read(s.counts, in, std::forward<Reader>(reader)...))
 		return false;
 	s.sum = 0;
@@ -439,8 +444,8 @@ inline bool read(array_multiset<T>& s, FILE* in, Reader&&... reader) {
  * Writes the given array_multiset structure `s` to `out`.
  * \param writer a scribe that is passed to `write` for core::array_map.
  */
-template<typename T, typename... Writer>
-inline bool write(const array_multiset<T>& s, FILE* out, Writer&&... writer) {
+template<typename T, bool AutomaticallyFree, typename... Writer>
+inline bool write(const array_multiset<T, AutomaticallyFree>& s, FILE* out, Writer&&... writer) {
 	return write(s.counts, out, std::forward<Writer>(writer)...);
 }
 
@@ -448,8 +453,8 @@ inline bool write(const array_multiset<T>& s, FILE* out, Writer&&... writer) {
  * Prints the given array_multiset structure `s` to `out`.
  * \param printer a scribe that is passed to `print` for core::array_map.
  */
-template<typename T, typename... Printer>
-inline void print(const array_multiset<T>& s, FILE* out, Printer&&... printer) {
+template<typename T, bool AutomaticallyFree, typename... Printer>
+inline void print(const array_multiset<T, AutomaticallyFree>& s, FILE* out, Printer&&... printer) {
 	fputc('{', out);
 	if (s.counts.size == 0) {
 		fputc('}', out);
@@ -540,7 +545,8 @@ struct hash_multiset {
 	/**
 	 * Adds the given multiset of items to this multiset.
 	 */
-	bool add(const array_multiset<T>& items) {
+	template<bool OtherAutomaticallyFree>
+	bool add(const array_multiset<T, OtherAutomaticallyFree>& items) {
 		if (!counts.check_size(counts.table.size + items.counts.size)) {
 			fprintf(stderr, "hash_multiset.add WARNING: Unable to expand hash_map.\n");
 			return false;
@@ -589,7 +595,8 @@ struct hash_multiset {
 	 * (i.e. this multiset contains all the keys in items with frequencies at
 	 * least as large).
 	 */
-	void subtract(const array_multiset<T>& items)
+	template<bool OtherAutomaticallyFree>
+	void subtract(const array_multiset<T, OtherAutomaticallyFree>& items)
 	{
 		for (unsigned int i = 0; i < items.counts.size; i++) {
 			unsigned int& count = counts.get(items.counts.keys[i]);
@@ -610,7 +617,8 @@ struct hash_multiset {
 	 * Moves the hash_multiset `src` into `dst`. Note that this function merely
 	 * copies pointers, and not contents.
 	 */
-	static inline void move(const hash_multiset<T>& src, hash_multiset<T>& dst) {
+	template<bool OtherAutomaticallyFree>
+	static inline void move(const hash_multiset<T, AutomaticallyFree>& src, hash_multiset<T, OtherAutomaticallyFree>& dst) {
 		hash_map<T, unsigned int>::move(src.counts, dst.counts);
 		dst.sum = src.sum;
 	}
@@ -618,13 +626,14 @@ struct hash_multiset {
 	/**
 	 * Copies the contents of the array_multiset `src` into `dst`.
 	 */
-	static inline bool copy(const hash_multiset<T>& src, hash_multiset<T>& dst) {
+	template<bool OtherAutomaticallyFree>
+	static inline bool copy(const hash_multiset<T, AutomaticallyFree>& src, hash_multiset<T, OtherAutomaticallyFree>& dst) {
 		dst.sum = src.sum;
 		return hash_map<T, unsigned int>::copy(src.counts, dst.counts);
 	}
 
 	template<typename Metric>
-	static inline long unsigned int size_of(const hash_multiset<T>& s, const Metric& metric) {
+	static inline long unsigned int size_of(const hash_multiset<T, AutomaticallyFree>& s, const Metric& metric) {
 		return size_of(s.counts, metric) + size_of(s.sum);
 	}
 
@@ -632,7 +641,7 @@ struct hash_multiset {
 	 * Frees the given hash_multiset `s`. This function also frees the keys in
 	 * the underlying hash_map by calling core::free on each element.
 	 */
-	static inline void free(hash_multiset<T>& s) {
+	static inline void free(hash_multiset<T, AutomaticallyFree>& s) {
 		s.free();
 		core::free(s.counts);
 	}
@@ -650,8 +659,8 @@ private:
  * Initializes an empty hash_multiset `s` with the given `initial_capacity` for
  * the underlying hash_map hash_multiset::counts.
  */
-template<typename T>
-inline bool init(hash_multiset<T>& s, unsigned int initial_capacity) {
+template<typename T, bool AutomaticallyFree>
+inline bool init(hash_multiset<T, AutomaticallyFree>& s, unsigned int initial_capacity) {
 	s.sum = 0;
 	return hash_map_init(s.counts, initial_capacity);
 }
@@ -660,8 +669,8 @@ inline bool init(hash_multiset<T>& s, unsigned int initial_capacity) {
  * Reads a hash_multiset `s` from `in`.
  * \param reader a scribe that is passed to `read` for core::hash_map.
  */
-template<typename T, typename Reader>
-inline bool read(hash_multiset<T>& s, FILE* in, Reader& reader) {
+template<typename T, bool AutomaticallyFree, typename Reader>
+inline bool read(hash_multiset<T, AutomaticallyFree>& s, FILE* in, Reader& reader) {
 	if (!read(s.counts, in, reader))
 		return false;
 	s.sum = 0;
@@ -675,8 +684,8 @@ inline bool read(hash_multiset<T>& s, FILE* in, Reader& reader) {
  * Writes the given hash_multiset `s` to `out`.
  * \param writer a scribe that is passed to `write` for core::hash_map.
  */
-template<typename T, typename Writer>
-inline bool write(const hash_multiset<T>& s, FILE* out, Writer& writer) {
+template<typename T, bool AutomaticallyFree, typename Writer>
+inline bool write(const hash_multiset<T, AutomaticallyFree>& s, FILE* out, Writer& writer) {
 	return write(s.counts, out, writer);
 }
 
@@ -684,8 +693,8 @@ inline bool write(const hash_multiset<T>& s, FILE* out, Writer& writer) {
  * Prints the given hash_multiset `s` to `out`.
  * \param printer a scribe that is passed to `print` for core::hash_map.
  */
-template<typename T, typename... Printer>
-inline void print(const hash_multiset<T>& s, FILE* out, Printer&&... printer) {
+template<typename T, bool AutomaticallyFree, typename... Printer>
+inline void print(const hash_multiset<T, AutomaticallyFree>& s, FILE* out, Printer&&... printer) {
 	fputc('{', out);
 	bool first = true;
 	for (unsigned int i = 0; i < s.counts.table.capacity; i++) {
