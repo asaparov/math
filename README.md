@@ -6,7 +6,7 @@ This repository contains a handful of data structures and algorithms for common 
 
 To use the code, simply download the files into a folder named "math". Add this folder to the include path for the compiler, for example by using the `-I` flag.
 
-This library depends on [core](https://github.com/asaparov/core) and the data structures and procedures follow the same paradigm as core. Otherwise, there are no dependencies on external libraries. The code makes use of `C++11` and is regularly tested with `gcc 8` but I have previously compiled it with `gcc 4.8`, `clang 4.0`, and `Microsoft Visual C++ 14.0 (2015)`. The code is intended to be platform-independent, so please create an issue if there are any compilation bugs.
+This library depends on [core](https://github.com/asaparov/core) and the data structures and procedures follow the same paradigm as core. Otherwise, there are no dependencies on external libraries. The code makes use of `C++11` and is regularly tested with `gcc 9` but I have previously compiled it with `gcc 4.8`, `clang 4.0`, and `Microsoft Visual C++ 14.0 (2015)`. The code is intended to be platform-independent, so please create an issue if there are any compilation bugs.
 
 ### Overview
 
