@@ -395,6 +395,8 @@ struct log_cache {
 			exit(EXIT_FAILURE);
 	}
 
+	~log_cache() { free(values); }
+
 	/**
 	 * Checks that the natural logarithms up to and including
 	 * `log(requested_size - 1)` are computed and stored.
