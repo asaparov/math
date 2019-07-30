@@ -436,11 +436,11 @@ private:
 		}
 		values = new_values;
 		if (FirstResize) {
-			values[0] = LOG_ZERO;
+			values[0] = (V) LOG_ZERO;
 			size = 1;
 		}
 		for (unsigned int i = size; i < new_size; i++)
-			values[i] = log(i);
+			values[i] = (V) log(i);
 		size = new_size;
 		return true;
 	}
