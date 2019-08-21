@@ -595,13 +595,14 @@ struct hash_multiset {
 	 * (i.e. this multiset contains all the keys in items with frequencies at
 	 * least as large).
 	 */
-	template<bool OtherAutomaticallyFree>
+	template<bool FreeEmptyBin = false, bool OtherAutomaticallyFree>
 	void subtract(const array_multiset<T, OtherAutomaticallyFree>& items)
 	{
 		for (unsigned int i = 0; i < items.counts.size; i++) {
-			unsigned int& count = counts.get(items.counts.keys[i]);
+			bool contains; unsigned int bucket;
+			unsigned int& count = counts.get(items.counts.keys[i], contains, bucket);
 #if !defined(NDEBUG)
-			if (count < items.counts.values[i]) {
+			if (!contains || count < items.counts.values[i]) {
 				fprintf(stderr, "hash_multiset.subtract WARNING: Attempted "
 						"to remove more items from a bin than it contains.\n");
 				count = 0;
@@ -609,6 +610,8 @@ struct hash_multiset {
 #else
 			count -= items.counts.values[i];
 #endif
+			if (FreeEmptyBin && count == 0)
+				counts.remove_at(bucket);
 		}
 		sum -= items.sum;
 	}
