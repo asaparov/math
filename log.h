@@ -149,25 +149,33 @@ inline V max(const T* src, const P* prior,
 }
 
 /**
+ * Returns the maximum log probability of the elements in the collection `src`.
+ * \tparam Collection the type of a collection of items, each of type `T`, for
+ * 		which the function `V log_probability(const T&)` is defined.
+ * \tparam V the type of the log probabilities.
+ */
+template<typename Collection, typename V = typename default_value_type<decltype(*std::declval<Collection>().begin())>::type>
+inline V max(const Collection& src)
+{
+	auto i = src.begin();
+	V maximum = log_probability(*i);
+	for (; i != src.end(); ++i) {
+		V value = log_probability(*i);
+		if (value > maximum)
+			maximum = value;
+	}
+	return maximum;
+}
+
+/**
  * Returns the maximum log probability of the given native array `src`.
  * \tparam T the type of every element in `src`, for which the function
  * 		`V log_probability(const T&)` is defined, where `V` is the return type
  * 		of this function.
  */
-template<typename T>
-inline auto max(const T* src, unsigned int length) -> decltype(max(src, 1, length)) {
-	return max(src, length, 1);
-}
-
-/**
- * Returns the maximum log probability of the given core::array `src`.
- * \tparam T the type of every element in `src`, for which the function
- * 		`V log_probability(const T&)` is defined, where `V` is the return type
- * 		of this function.
- */
-template<typename T>
-inline auto max(const core::array<T>& src) -> decltype(max(src.data, src.length)) {
-	return max(src.data, src.length);
+template<typename T, typename V = typename default_value_type<T>::type>
+inline V max(const T* src, unsigned int length) {
+	return max<T, V>(src, length, 1);
 }
 
 /**
@@ -199,6 +207,22 @@ inline V sumexp(const T* src, const P* prior, unsigned int length, unsigned int 
 	V sum = 0.0;
 	for (unsigned int i = 0; i < length; i++)
 		sum += exp(log_probability(src[i * skip]) + log_probability(prior[i]) - shift);
+	return sum;
+}
+
+/**
+ * This function returns
+ * \f[ \sum_{c\in\text{src}} \exp\{ f(c) - \text{shift} \} \f]
+ * where \f$ f(\cdot) \f$ is the function `V log_probability(const T&)`.
+ * \tparam Collection the type of a collection of items, each of type `T`, for
+ * 		which the function `V log_probability(const T&)` is defined.
+ * \tparam V the type of the log probabilities.
+ */
+template<typename Collection, typename V>
+inline V sumexp(const Collection& src, const V& shift) {
+	V sum = 0.0;
+	for (const auto& element : src)
+		sum += exp(log_probability(element) - shift);
 	return sum;
 }
 
@@ -266,7 +290,7 @@ inline void normalize_exp(const T* src, const P* prior, V* dst,
  */
 template<typename T, typename V = typename default_value_type<T>::type>
 inline V logsumexp(const T* src, unsigned int length, unsigned int skip = 1) {
-	V maximum = max(src, length);
+	V maximum = max<T, V>(src, length);
 	return log(sumexp(src, length, skip, maximum)) + maximum;
 }
 
@@ -281,8 +305,21 @@ inline V logsumexp(const T* src, unsigned int length, unsigned int skip = 1) {
  */
 template<typename T, typename P, typename V = typename default_value_type<T>::type>
 inline V logsumexp(const T* src, const P* prior, unsigned int length, unsigned int skip = 1) {
-	V maximum = max(src, prior, length);
+	V maximum = max<T, P, V>(src, prior, length);
 	return log(sumexp(src, prior, length, skip, maximum)) + maximum;
+}
+
+/**
+ * Returns the natural logarithm of the sum of the natural exponent of the
+ * elements in the collection `src`.
+ * \tparam Collection the type of a collection of items, each of type `T`, for
+ * 		which the function `V log_probability(const T&)` is defined.
+ * \tparam V the type of the log probabilities.
+ */
+template<typename Collection, typename V = typename default_value_type<decltype(*std::declval<Collection>().begin())>::type>
+inline V logsumexp(const Collection& src) {
+	V maximum = max<Collection, V>(src);
+	return log(sumexp(src, maximum)) + maximum;
 }
 
 /**
