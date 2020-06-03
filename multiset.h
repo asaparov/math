@@ -48,6 +48,32 @@
 
 using namespace core;
 
+template<bool AutomaticallyFree>
+struct cleaner { };
+
+template<>
+struct cleaner<true> {
+	template<typename T>
+	static inline void free(T& element) {
+		core::free(element);
+	}
+
+	template<typename MapType>
+	static inline void free_keys(MapType& map) {
+		for (auto entry : map)
+			core::free(entry.key);
+	}
+};
+
+template<>
+struct cleaner<false> {
+	template<typename T>
+	static inline void free(T& element) { }
+
+	template<typename MapType>
+	static inline void free_keys(MapType& map) { }
+};
+
 /**
  * A multiset structure that keeps track of the number of occurrences of
  * distinct element in a set, implemented using a core::array_map, where the
@@ -242,14 +268,12 @@ struct array_multiset {
 	}
 
 	/**
-	 * Removes all elements from this multiset. This function also frees the
-	 * keys in the underlying array_map by calling core::free on each element.
+	 * Removes all elements from this multiset. If `AutomaticallyFree == true`,
+	 * this function also frees the keys in the underlying array_map by
+	 * calling core::free on each element.
 	 */
 	inline void clear() {
-		if (AutomaticallyFree) {
-			for (auto entry : counts)
-				core::free(entry.key);
-		}
+		cleaner<AutomaticallyFree>::free_keys(counts);
 		counts.clear();
 		sum = 0;
 	}
@@ -267,8 +291,8 @@ struct array_multiset {
 				core::move(counts.keys[i], counts.keys[new_length]);
 				counts.values[new_length] = counts.values[i];
 				new_length++;
-			} else if (AutomaticallyFree) {
-				core::free(counts.keys[i]);
+			} else {
+				cleaner<AutomaticallyFree>::free(counts.keys[i]);
 			}
 		}
 		counts.size = new_length;
@@ -336,8 +360,9 @@ struct array_multiset {
 	}
 
 	/**
-	 * Frees the given array_multiset `s`. This function also frees the keys in
-	 * the underlying array_map by calling core::free on each element.
+	 * Frees the given array_multiset `s`. If `AutomaticallyFree == true`,
+	 * this function also frees the keys in the underlying array_map by
+	 * calling core::free on each element.
 	 */
 	static inline void free(array_multiset<T, AutomaticallyFree>& s) {
 		s.free();
@@ -346,10 +371,7 @@ struct array_multiset {
 
 private:
 	inline void free() {
-		if (AutomaticallyFree) {
-			for (auto entry : counts)
-				core::free(entry.key);
-		}
+		cleaner<AutomaticallyFree>::free_keys(counts);
 	}
 };
 
@@ -641,8 +663,9 @@ struct hash_multiset {
 	}
 
 	/**
-	 * Frees the given hash_multiset `s`. This function also frees the keys in
-	 * the underlying hash_map by calling core::free on each element.
+	 * Frees the given hash_multiset `s`. If `AutomaticallyFree == true`,
+	 * this function also frees the keys in the underlying hash_map by
+	 * calling core::free on each element.
 	 */
 	static inline void free(hash_multiset<T, AutomaticallyFree>& s) {
 		s.free();
@@ -651,10 +674,7 @@ struct hash_multiset {
 
 private:
 	inline void free() {
-		if (AutomaticallyFree) {
-			for (auto entry : counts)
-				core::free(entry.key);
-		}
+		cleaner<AutomaticallyFree>::free_keys(counts);
 	}
 };
 
