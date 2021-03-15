@@ -632,8 +632,11 @@ struct hash_multiset {
 #else
 			count -= items.counts.values[i];
 #endif
-			if (FreeEmptyBin && count == 0)
+			if (FreeEmptyBin && count == 0) {
+				if (AutomaticallyFree)
+					core::free(counts.table.keys[bucket]);
 				counts.remove_at(bucket);
+			}
 		}
 		sum -= items.sum;
 	}
