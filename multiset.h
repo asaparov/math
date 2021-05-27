@@ -695,9 +695,9 @@ inline bool init(hash_multiset<T, AutomaticallyFree>& s, unsigned int initial_ca
  * Reads a hash_multiset `s` from `in`.
  * \param reader a scribe that is passed to `read` for core::hash_map.
  */
-template<typename T, bool AutomaticallyFree, typename Reader>
-inline bool read(hash_multiset<T, AutomaticallyFree>& s, FILE* in, Reader& reader) {
-	if (!read(s.counts, in, reader))
+template<typename T, bool AutomaticallyFree, typename... Reader>
+inline bool read(hash_multiset<T, AutomaticallyFree>& s, FILE* in, Reader&&... reader) {
+	if (!read(s.counts, in, std::forward<Reader>(reader)...))
 		return false;
 	s.sum = 0;
 	for (unsigned int i = 0; i < s.counts.table.capacity; i++)
@@ -710,9 +710,9 @@ inline bool read(hash_multiset<T, AutomaticallyFree>& s, FILE* in, Reader& reade
  * Writes the given hash_multiset `s` to `out`.
  * \param writer a scribe that is passed to `write` for core::hash_map.
  */
-template<typename T, bool AutomaticallyFree, typename Writer>
-inline bool write(const hash_multiset<T, AutomaticallyFree>& s, FILE* out, Writer& writer) {
-	return write(s.counts, out, writer);
+template<typename T, bool AutomaticallyFree, typename... Writer>
+inline bool write(const hash_multiset<T, AutomaticallyFree>& s, FILE* out, Writer&&... writer) {
+	return write(s.counts, out, std::forward<Writer>(writer)...);
 }
 
 /**
